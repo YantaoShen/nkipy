@@ -109,9 +109,12 @@ def register_all_numpy_apis():
     _register_numpy_api(np.repeat, ops.repeat)
     _register_numpy_api(np.squeeze, ops.squeeze)
     _register_numpy_api(np.pad, ops.pad)
+    _register_numpy_api(np.swapaxes, ops.swapaxes)
+    _register_numpy_api(np.stack, ops.stack)
 
     # Creation operations
     _register_numpy_api(np.zeros_like, ops.zeros_like)
+    _register_numpy_api(np.ones_like, ops.ones_like)
     _register_numpy_api(np.empty_like, ops.empty_like)
     _register_numpy_api(np.full_like, ops.full_like)
 

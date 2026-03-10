@@ -80,6 +80,40 @@ def _transpose_hlo(x, axes=None, out=None, dtype=None):
 
 
 # -----------------------------------------------------------------------------
+# swapaxes
+# -----------------------------------------------------------------------------
+swapaxes = Op("swapaxes")
+
+
+@swapaxes.impl("hlo")
+def _swapaxes_hlo(x, axis1, axis2):
+    """Swap two axes of a tensor by delegating to transpose."""
+    ndim = len(x.shape)
+    if axis1 < 0:
+        axis1 += ndim
+    if axis2 < 0:
+        axis2 += ndim
+    if not (0 <= axis1 < ndim) or not (0 <= axis2 < ndim):
+        raise np.AxisError(f"axis is out of bounds for array of dimension {ndim}")
+    axes = list(range(ndim))
+    axes[axis1], axes[axis2] = axes[axis2], axes[axis1]
+    return transpose(x, axes=axes)
+
+
+# -----------------------------------------------------------------------------
+# stack
+# -----------------------------------------------------------------------------
+stack = Op("stack")
+
+
+@stack.impl("hlo")
+def _stack_hlo(arrays, axis=0, out=None, dtype=None):
+    """Stack tensors along a new axis using expand_dims + concatenate."""
+    expanded = [expand_dims(a, axis=axis) for a in arrays]
+    return concatenate(expanded, axis=axis)
+
+
+# -----------------------------------------------------------------------------
 # expand_dims
 # -----------------------------------------------------------------------------
 expand_dims = Op("expand_dims")

@@ -2815,5 +2815,239 @@ def test_var_dtype(trace_mode):
         trace_and_compile(kernel, trace_mode, in0)
 
 
+def test_ones_like_dispatch(trace_mode):
+    """Test that np.ones_like dispatches correctly via __array_function__."""
+
+    def kernel(a):
+        return np.ones_like(a)
+
+    shape = (32, 64)
+    in0 = np.random.uniform(0.0, 1.0, size=shape).astype(np.float32)
+    expected = kernel(in0)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0)
+
+
+def test_tensor_max_method(trace_mode):
+    """Test tensor .max() method dispatches to np.max."""
+
+    def kernel(a):
+        return a.max(axis=-1, keepdims=True)
+
+    shape = (64, 64)
+    dtype = np.float32
+    in0 = np.random.uniform(0.0, 1.0, size=shape).astype(dtype)
+    expected = kernel(in0)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0)
+
+
+def test_tensor_min_method(trace_mode):
+    """Test tensor .min() method dispatches to np.min."""
+
+    def kernel(a):
+        return a.min(axis=-1, keepdims=True)
+
+    shape = (64, 64)
+    dtype = np.float32
+    in0 = np.random.uniform(0.0, 1.0, size=shape).astype(dtype)
+    expected = kernel(in0)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0)
+
+
+def test_tensor_copy_method(trace_mode):
+    """Test tensor .copy() method dispatches to np.copy."""
+
+    def kernel(a):
+        b = a.copy()
+        return b + 1.0
+
+    shape = (64, 64)
+    in0 = np.random.uniform(0.0, 1.0, size=shape).astype(np.float32)
+    expected = kernel(in0)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0)
+
+
+def test_tensor_clip_method(trace_mode):
+    """Test tensor .clip() method dispatches to np.clip."""
+
+    def kernel(a):
+        return a.clip(0.2, 0.8)
+
+    shape = (64, 64)
+    in0 = np.random.uniform(0.0, 1.0, size=shape).astype(np.float32)
+    expected = kernel(in0)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0)
+
+
+def test_tensor_ravel_method(trace_mode):
+    """Test tensor .ravel() method flattens to 1D."""
+
+    def kernel(a):
+        return a.ravel()
+
+    shape = (16, 32)
+    in0 = np.random.uniform(0.0, 1.0, size=shape).astype(np.float32)
+    expected = kernel(in0)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0)
+
+
+def test_tensor_swapaxes_method(trace_mode):
+    """Test tensor .swapaxes() method and np.swapaxes dispatch."""
+
+    def kernel(a):
+        return a.swapaxes(0, 1)
+
+    shape = (32, 64)
+    in0 = np.random.uniform(0.0, 1.0, size=shape).astype(np.float32)
+    expected = kernel(in0)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0)
+
+
+def test_np_swapaxes(trace_mode):
+    """Test np.swapaxes with negative axes."""
+
+    def kernel(a):
+        return np.swapaxes(a, 0, -1)
+
+    shape = (16, 32, 64)
+    in0 = np.random.uniform(0.0, 1.0, size=shape).astype(np.float32)
+    expected = kernel(in0)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0)
+
+
+def test_np_stack(trace_mode):
+    """Test np.stack along default axis=0."""
+
+    def kernel(a, b):
+        return np.stack([a, b])
+
+    shape = (32, 64)
+    dtype = np.float32
+    in0 = np.random.uniform(0.0, 1.0, size=shape).astype(dtype)
+    in1 = np.random.uniform(0.0, 1.0, size=shape).astype(dtype)
+    expected = kernel(in0, in1)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0, in1)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0, in1)
+
+
+def test_np_stack_axis(trace_mode):
+    """Test np.stack along axis=1."""
+
+    def kernel(a, b):
+        return np.stack([a, b], axis=1)
+
+    shape = (32, 64)
+    dtype = np.float32
+    in0 = np.random.uniform(0.0, 1.0, size=shape).astype(dtype)
+    in1 = np.random.uniform(0.0, 1.0, size=shape).astype(dtype)
+    expected = kernel(in0, in1)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0, in1)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0, in1)
+
+
+def test_bitwise_and_dunder(trace_mode):
+    """Test tensor & operator dispatches to np.bitwise_and."""
+
+    def kernel(a, b):
+        return a & b
+
+    shape = (64, 64)
+    in0 = np.random.randint(0, 255, size=shape).astype(np.int32)
+    in1 = np.random.randint(0, 255, size=shape).astype(np.int32)
+    expected = kernel(in0, in1)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0, in1)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0, in1)
+
+
+def test_bitwise_or_dunder(trace_mode):
+    """Test tensor | operator dispatches to np.bitwise_or."""
+
+    def kernel(a, b):
+        return a | b
+
+    shape = (64, 64)
+    in0 = np.random.randint(0, 255, size=shape).astype(np.int32)
+    in1 = np.random.randint(0, 255, size=shape).astype(np.int32)
+    expected = kernel(in0, in1)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0, in1)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0, in1)
+
+
+def test_bitwise_xor_dunder(trace_mode):
+    """Test tensor ^ operator dispatches to np.bitwise_xor."""
+
+    def kernel(a, b):
+        return a ^ b
+
+    shape = (64, 64)
+    in0 = np.random.randint(0, 255, size=shape).astype(np.int32)
+    in1 = np.random.randint(0, 255, size=shape).astype(np.int32)
+    expected = kernel(in0, in1)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0, in1)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0, in1)
+
+
+def test_bitwise_invert_dunder(trace_mode):
+    """Test tensor ~ operator dispatches to np.invert."""
+
+    def kernel(a):
+        return ~a
+
+    shape = (64, 64)
+    in0 = np.random.randint(0, 255, size=shape).astype(np.int32)
+    expected = kernel(in0)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

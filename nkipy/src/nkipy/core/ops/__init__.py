@@ -126,6 +126,8 @@ from nkipy.core.ops.transform import (
     reshape,
     split,
     squeeze,
+    stack,
+    swapaxes,
     transpose,
 )
 
@@ -240,6 +242,8 @@ __all__ = [
     "astype",
     "squeeze",
     "pad",
+    "swapaxes",
+    "stack",
     # NN
     "softmax",
     "topk",

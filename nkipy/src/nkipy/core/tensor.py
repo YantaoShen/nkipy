@@ -187,6 +187,28 @@ class TensorArithmeticMixin:
     def __ne__(self, other):
         return np.not_equal(self, other)
 
+    # Bitwise operations
+    def __and__(self, other):
+        return np.bitwise_and(self, other)
+
+    def __or__(self, other):
+        return np.bitwise_or(self, other)
+
+    def __xor__(self, other):
+        return np.bitwise_xor(self, other)
+
+    def __invert__(self):
+        return np.invert(self)
+
+    def __rand__(self, other):
+        return np.bitwise_and(other, self)
+
+    def __ror__(self, other):
+        return np.bitwise_or(other, self)
+
+    def __rxor__(self, other):
+        return np.bitwise_xor(other, self)
+
 
 class TensorOperationMixin:
     def transpose(self, *axes):
@@ -224,6 +246,24 @@ class TensorOperationMixin:
 
     def squeeze(self, axis=None):
         return np.squeeze(self, axis=axis)
+
+    def max(self, axis=None, keepdims=False, **kwargs):
+        return np.max(self, axis=axis, keepdims=keepdims, **kwargs)
+
+    def min(self, axis=None, keepdims=False, **kwargs):
+        return np.min(self, axis=axis, keepdims=keepdims, **kwargs)
+
+    def copy(self):
+        return np.copy(self)
+
+    def clip(self, a_min=None, a_max=None):
+        return np.clip(self, a_min, a_max)
+
+    def ravel(self):
+        return np.reshape(self, (-1,))
+
+    def swapaxes(self, axis1, axis2):
+        return np.swapaxes(self, axis1, axis2)
 
 
 def _expand_ellipsis(indices: tuple, ndim: int) -> tuple:
