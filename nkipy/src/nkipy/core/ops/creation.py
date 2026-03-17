@@ -524,8 +524,8 @@ def _diag_hlo(v, k=0):
             # Diagonal starts at column k: row index gives position in v
             idx_ref = row_ref
         else:
-            # Diagonal starts at row -k: col index (after offset) gives position in v
-            idx_ref = col_ref
+            # Diagonal starts at row -k: raw col index gives position in v
+            idx_ref = NKIPyTensorRef(col_iota)
 
         # Use take to gather v values at idx positions, then mask
         from nkipy.core.ops.indexing import take
