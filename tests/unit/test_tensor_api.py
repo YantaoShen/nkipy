@@ -3588,5 +3588,18 @@ def test_diag_2d_to_1d(trace_mode):
         trace_and_compile(kernel, trace_mode, in0)
 
 
+def test_diag_1d_to_2d_negative_k(trace_mode):
+    def kernel(a):
+        return np.diag(a, k=-2)
+
+    in0 = np.random.uniform(0.0, 1.0, size=(16,)).astype(np.float32)
+    expected = kernel(in0)
+    if NEURON_AVAILABLE:
+        out_device = on_device_test(kernel, trace_mode, in0)
+        baremetal_assert_allclose(expected, out_device)
+    else:
+        trace_and_compile(kernel, trace_mode, in0)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
