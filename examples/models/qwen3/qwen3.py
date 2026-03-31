@@ -418,12 +418,19 @@ class Qwen3Model:
         next_id_torch = next_id.torch().reshape(B, 1).to(dtype=torch.int)
         yield next_id_torch
 
-        for pos in range(context_len, context_len + self.config.max_new_tokens):
-            t_start_pos = DeviceTensor.from_numpy(np.array([pos], dtype=np.int32))
+        # Pre-allocate reusable device tensors for the decode loop
+        t_start_pos = DeviceTensor.from_numpy(
+            np.array([context_len], dtype=np.int32), "start_pos"
+        )
+        hidden_states = DeviceTensor.from_torch(
+            self.tok_embedding[next_id_torch], "h0/res1"
+        )
 
-            hidden_states = DeviceTensor.from_torch(
-                self.tok_embedding[next_id_torch], "h0/res1"
-            )
+        # Generation phase (token by token)
+        for pos in range(context_len, context_len + self.config.max_new_tokens):
+            # Write new data into pre-allocated tensors (no reallocation)
+            t_start_pos.write_from_numpy(np.array([pos], dtype=np.int32))
+            hidden_states.write_from_torch(self.tok_embedding[next_id_torch])
 
             self._run_tkg_layers(hidden_states, t_start_pos)
 
