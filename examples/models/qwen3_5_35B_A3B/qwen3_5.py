@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from config import FULL_ATTENTION, LINEAR_ATTENTION, Config, get_config
-from kernels.sampling import compute_logits
+from kernels.sampling import greedy_sampling
 from kernels.transformer_layer import (
     transformer_layer_full_attn,
     transformer_layer_linear_attn,
@@ -255,23 +255,26 @@ class Qwen35Model:
                 **la_common,
             )
 
-        # --- Compile logits kernels (argmax done on CPU) ---
+        # --- Compile on-device greedy sampling kernels ---
+        # RMSNorm + lm_head matmul + all_gather + global topk all on device.
+        # Output is (B,) uint32 global token id (topk over gathered logits collapses
+        # the batch axis to 1-D on the device side; we reshape to (B, 1) on host).
         ws = dist.get_world_size()
         vocab_per_device = self.lm_head_weight.numpy().shape[1]
         self.vocab_per_device = vocab_per_device
 
-        self.d_logits_ctx = DeviceTensor.from_numpy(
-            np.empty((self.config.max_batch_size, vocab_per_device), dtype=np.float32),
-            "logits_ctx",
+        self.d_next_id_ctx = DeviceTensor.from_numpy(
+            np.empty((self.config.max_batch_size,), dtype=np.uint32),
+            "next_id_ctx",
         )
-        self.d_logits_tok = DeviceTensor.from_numpy(
-            np.empty((self.config.max_batch_size, vocab_per_device), dtype=np.float32),
-            "logits_tok",
+        self.d_next_id_tok = DeviceTensor.from_numpy(
+            np.empty((self.config.max_batch_size,), dtype=np.uint32),
+            "next_id_tok",
         )
 
         self.kernel_cte_greedy_sampling = DeviceKernel.compile_and_load(
-            compute_logits,
-            name="cte_logits",
+            greedy_sampling,
+            name="cte_greedy_sampling",
             h=x_context,
             norm_weight=self.norm_weight,
             lm_head_weight=self.lm_head_weight,
@@ -280,8 +283,8 @@ class Qwen35Model:
             additional_compiler_args=self.config.additional_compiler_args_nkipy,
         )
         self.kernel_tkg_greedy_sampling = DeviceKernel.compile_and_load(
-            compute_logits,
-            name="tkg_logits",
+            greedy_sampling,
+            name="tkg_greedy_sampling",
             h=x_token,
             norm_weight=self.norm_weight,
             lm_head_weight=self.lm_head_weight,
@@ -355,31 +358,23 @@ class Qwen35Model:
             }
             kernel_la(inputs=inputs, outputs=outputs)
 
-    def _sample_token(self, kernel, hidden_states, d_logits):
-        """Run logits kernel on device, then argmax on CPU across all TP ranks."""
+    def _sample_token(self, kernel, hidden_states, d_next_id):
+        """Run on-device greedy sampling; return (B, 1) torch.int token IDs.
+
+        The kernel does RMSNorm + lm_head matmul + all_gather + global topk entirely
+        on device. We read back (B,) uint32 and reshape to (B, 1) torch int32 to
+        match the previous argmax interface.
+        """
         kernel(
             inputs={
                 "h": hidden_states,
                 "norm_weight": self.norm_weight,
                 "lm_head_weight": self.lm_head_weight,
             },
-            outputs={"output0": d_logits},
+            outputs={"output0": d_next_id},
         )
-        # Read partial logits (this rank's vocab shard) to CPU
-        local_logits = torch.from_numpy(d_logits.numpy().astype(np.float32))
-
-        ws = dist.get_world_size()
-        if ws > 1:
-            # All-gather partial logits from all ranks on CPU
-            gathered = [torch.empty_like(local_logits) for _ in range(ws)]
-            dist.all_gather(gathered, local_logits)
-            all_logits = torch.cat(gathered, dim=-1)  # (B, full_vocab)
-        else:
-            all_logits = local_logits
-
-        # Argmax on CPU
-        next_id = all_logits.argmax(dim=-1, keepdim=True).to(dtype=torch.int)  # (B, 1)
-        return next_id
+        next_id_np = d_next_id.numpy().astype(np.int32).reshape(-1, 1)
+        return torch.from_numpy(next_id_np)
 
     def generate(self, input_ids):
         context_len = self.config.context_len
@@ -410,7 +405,7 @@ class Qwen35Model:
             )
 
         next_id_torch = self._sample_token(
-            self.kernel_cte_greedy_sampling, hidden_states, self.d_logits_ctx
+            self.kernel_cte_greedy_sampling, hidden_states, self.d_next_id_ctx
         )
         yield next_id_torch
 
@@ -434,7 +429,7 @@ class Qwen35Model:
                 )
 
             next_id_torch = self._sample_token(
-                self.kernel_tkg_greedy_sampling, t_res1, self.d_logits_tok
+                self.kernel_tkg_greedy_sampling, t_res1, self.d_next_id_tok
             )
             yield next_id_torch
 
